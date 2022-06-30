@@ -317,26 +317,36 @@ uploadTable <- function(tableName,
       if (nrow(chunk) == 0) {
         rlang::inform("- No data left to insert")
       } else {
-        DatabaseConnector::insertTable(
-          connection = connection,
-          tableName = env$tableName,
-          databaseSchema = env$schema,
-          data = chunk,
-          dropTableIfExists = FALSE,
-          createTable = FALSE,
-          tempTable = FALSE,
-          progressBar = TRUE
-        )
+        insertTablesStatus <- tryCatch(expr = {
+          DatabaseConnector::insertTable(
+            connection = connection,
+            tableName = env$tableName,
+            databaseSchema = env$schema,
+            data = chunk,
+            dropTableIfExists = FALSE,
+            createTable = FALSE,
+            tempTable = FALSE,
+            progressBar = TRUE
+          )
+        }, error = function(e) e)
+        if (inherits(insertTablesStatus, "error")) {
+          stop(paste0("Error inserting into table: ", env$schema, ".", env$tableName))
+        }
       }
     }
-    readr::read_csv_chunked(
-      file = file.path(resultsFolder, csvFileName),
-      callback = uploadChunk,
-      chunk_size = 1e7,
-      col_types = readr::cols(),
-      guess_max = 1e6,
-      progress = FALSE
-    )
+    uploadStatus <- tryCatch(expr = {
+        readr::read_csv_chunked(
+        file = file.path(resultsFolder, csvFileName),
+        callback = uploadChunk,
+        chunk_size = 1e7,
+        col_types = readr::cols(),
+        guess_max = 1e6,
+        progress = FALSE
+      )
+    }, error = function(e) e)
+    if (inherits(uploadStatus, "error")) {
+      stop(paste0("Error inserting into table: ", env$schema, ".", env$tableName))
+    }
   }
   else {
     warning(csvFileName, " not found")
